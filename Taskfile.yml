@@ -1,0 +1,101 @@
+version: '3'
+
+dotenv: ['.env']
+
+tasks:
+  up:
+    desc: "Start the API server and background poller, wait until ready"
+    cmds:
+      - mkdir -p data
+      - |
+        echo "Starting API server..."
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+        echo $! > .pid-api
+      - |
+        echo "Waiting for API to be ready..."
+        for i in $(seq 1 20); do
+          if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+            echo "API is ready"
+            break
+          fi
+          sleep 1
+        done
+      - |
+        echo "Starting poller..."
+        python worker/poller.py &
+        echo $! > .pid-worker
+      - echo "System is ready. Webhook → http://localhost:8000/webhook | Metrics → http://localhost:8000/metrics"
+
+  down:
+    desc: "Stop services, delete non-main branches, and clear the tasks table"
+    cmds:
+      - task: stop
+      - task: clean-branches
+      - task: clean-db
+
+  stop:
+    desc: "Stop background API and worker processes"
+    cmds:
+      - |
+        for pidfile in .pid-api .pid-worker; do
+          if [ -f "$pidfile" ]; then
+            kill $(cat "$pidfile") 2>/dev/null || true
+            rm -f "$pidfile"
+          fi
+        done
+      - echo "Processes stopped"
+
+  clean-branches:
+    desc: "Delete all remote branches except main/master"
+    cmds:
+      - |
+        echo "Cleaning branches in $GITHUB_REPO..."
+        BRANCHES=$(gh api repos/$GITHUB_REPO/git/refs/heads --jq '.[].ref' | grep -v 'refs/heads/main$' | grep -v 'refs/heads/master$')
+        if [ -z "$BRANCHES" ]; then
+          echo "No branches to delete"
+        else
+          echo "$BRANCHES" | while read ref; do
+            branch="${ref#refs/heads/}"
+            echo "  Deleting branch: $branch"
+            gh api -X DELETE repos/$GITHUB_REPO/git/refs/heads/$branch
+          done
+        fi
+
+  clean-db:
+    desc: "Wipe all rows from the tasks table"
+    cmds:
+      - python -c "
+        from app.db.database import SessionLocal, init_db
+        from app.db.repository import clear_all_tasks
+        init_db()
+        db = SessionLocal()
+        clear_all_tasks(db)
+        db.close()
+        print('tasks table cleared')
+        "
+
+  seed:
+    desc: "Create the remediation issues in the fork"
+    cmds:
+      - python scripts/create_issues.py
+
+  metrics:
+    desc: "Print current task metrics from the API"
+    cmds:
+      - curl -s http://localhost:8000/metrics | python -m json.tool
+
+  tasks-list:
+    desc: "List all tasks from the API"
+    cmds:
+      - curl -s http://localhost:8000/tasks | python -m json.tool
+
+  docker-up:
+    desc: "Start services via Docker Compose"
+    cmds:
+      - docker compose up --build -d
+      - docker compose logs -f
+
+  docker-down:
+    desc: "Stop and remove Docker Compose services"
+    cmds:
+      - docker compose down

@@ -1,0 +1,14 @@
+.env
+.venv/
+data/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.pid-api
+.pid-worker
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
