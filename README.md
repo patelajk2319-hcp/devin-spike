@@ -5,10 +5,10 @@ Label a GitHub issue → Devin fixes it → PR opened automatically.
 ## How It Works
 
 ```
-GitHub issue labeled  →  webhook  →  Devin session started  →  PR opened  →  issue commented
+GitHub issue labelled  →  webhook  →  Devin session started  →  PR opened  →  issue commented
 ```
 
-A background poller checks session status every 30s and finalises each task when Devin finishes.
+A background poller checks session status every 30 seconds and finalises each task when Devin finishes.
 
 ## Prerequisites
 
@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-org>/devin-spike.git
+git clone https://github.com/patelajk2319-hcp/devin-spike.git
 cd devin-spike
 ```
 
