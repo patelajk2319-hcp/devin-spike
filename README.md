@@ -16,7 +16,7 @@ A background poller checks session status every 30s and finalises each task when
 ```bash
 brew install go-task
 brew install python
-brew install ngrok/ngrok/ngrok
+brew install --cask ngrok
 ```
 
 ### Python Dependencies
