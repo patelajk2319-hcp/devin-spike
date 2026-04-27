@@ -1,8 +1,8 @@
 # Devin Remediation Demo
 
-Labels a GitHub issue → Devin fixes it → PR opened automatically.
+Label a GitHub issue → Devin fixes it → PR opened automatically.
 
-## How it works
+## How It Works
 
 ```
 GitHub issue labeled  →  webhook  →  Devin session started  →  PR opened  →  issue commented
@@ -10,32 +10,61 @@ GitHub issue labeled  →  webhook  →  Devin session started  →  PR opened  
 
 A background poller checks session status every 30s and finalises each task when Devin finishes.
 
-## Quick start
+## Prerequisites
 
-**1. Install dependencies**
+### Required Tools (install via Homebrew)
+```bash
+brew install go-task
+brew install python
+```
+
+### Python Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-**2. Configure**
+## Quick Start
+
+### 1. Clone the Repository
 ```bash
-cp .env.example .env
-# Fill in the four required values
+git clone https://github.com/<your-org>/devin-spike.git
+cd devin-spike
 ```
 
-| Variable | What it is |
-|---|---|
-| `DEVIN_API_TOKEN` | Devin API token |
-| `GITHUB_TOKEN` | GitHub PAT with `repo` scope |
-| `GITHUB_WEBHOOK_SECRET` | Any secret string — used to verify webhook signatures |
-| `GITHUB_REPO` | Repo to monitor, e.g. `your-org/your-repo` |
+### 2. Create `.env` File
+```bash
+cp .env.example .env
+```
 
-**3. Expose your local server** *(skip if deployed)*
+Fill in the four required values:
+
+```bash
+# Devin API token
+DEVIN_API_TOKEN=<your-devin-api-token>
+
+# GitHub personal access token with repo scope
+GITHUB_TOKEN=<your-github-pat>
+
+# Secret used to verify webhook signatures
+GITHUB_WEBHOOK_SECRET=<your-webhook-secret>
+
+# Repo to monitor, e.g. your-org/your-repo
+GITHUB_REPO=<your-org/your-repo>
+```
+
+### 3. Generate a Webhook Secret
+```bash
+openssl rand -hex 32
+```
+
+Copy the output into `GITHUB_WEBHOOK_SECRET` in your `.env` file.
+
+### 4. Expose Your Local Server *(skip if deployed)*
 ```bash
 ngrok http 8000
 ```
 
-**4. Add a GitHub webhook**
+### 5. Add a GitHub Webhook
 
 Repo → Settings → Webhooks → Add webhook:
 - Payload URL: `https://<ngrok-url>/webhook`
@@ -43,19 +72,21 @@ Repo → Settings → Webhooks → Add webhook:
 - Secret: your `GITHUB_WEBHOOK_SECRET`
 - Events: Issues
 
-**5. Start**
+### 6. Start the Stack
 ```bash
 task up
 ```
 
-**6. Seed issues** *(triggers the demo)*
+### 7. Seed Issues *(triggers the demo)*
 ```bash
 task seed
 ```
 
 Watch Devin open PRs and comment on each issue automatically.
 
-## Commands
+## Available Commands
+
+Run `task --list` to see all available commands.
 
 | Command | Description |
 |---|---|
@@ -66,6 +97,14 @@ Watch Devin open PRs and comment on each issue automatically.
 | `task status` | Show task table from DB |
 | `task metrics` | Show task counts from API |
 
+## Architecture
+
+- **FastAPI**: Webhook receiver and REST API
+- **SQLite**: Lightweight task state store
+- **Devin API**: AI agent that fixes issues and opens PRs
+- **GitHub Webhooks**: Triggers on issue label events
+- **Background Poller**: Checks Devin session status every 30s
+
 ## API
 
 | Endpoint | Description |
@@ -75,3 +114,8 @@ Watch Devin open PRs and comment on each issue automatically.
 | `GET /tasks` | All tasks |
 | `POST /webhook` | GitHub webhook receiver |
 
+## Notes
+
+- Devin is triggered only when an issue is labeled — not on every issue event
+- Task state is persisted in a local SQLite database (`data/`)
+- All sensitive values are stored in `.env` (gitignored)
