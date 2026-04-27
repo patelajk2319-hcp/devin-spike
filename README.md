@@ -75,8 +75,3 @@ Watch Devin open PRs and comment on each issue automatically.
 | `GET /tasks` | All tasks |
 | `POST /webhook` | GitHub webhook receiver |
 
-## Docker
-
-```bash
-task docker-up
-```
