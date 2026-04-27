@@ -56,7 +56,7 @@ def handle_labeled_issue(
     return task
 
 
-def finalize_task(db: Session, task_record: TaskRecord, session_data: dict) -> None:
+def finalise_task(db: Session, task_record: TaskRecord, session_data: dict) -> None:
     session_url = (
         task_record.devin_session_url
         or f"https://app.devin.ai/sessions/{task_record.devin_session_id}"

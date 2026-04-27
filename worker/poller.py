@@ -40,7 +40,7 @@ def poll_once() -> None:
                         "Please continue. Complete the task, push the branch, and open a pull request.",
                     )
                 elif devin_service.is_terminal(session_data):
-                    task_service.finalize_task(db, task, session_data)
+                    task_service.finalise_task(db, task, session_data)
             except Exception as exc:
                 logger.error(f"Error polling task id={task.id}: {exc}")
     finally:
