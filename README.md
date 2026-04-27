@@ -16,6 +16,7 @@ A background poller checks session status every 30s and finalises each task when
 ```bash
 brew install go-task
 brew install python
+brew install ngrok/ngrok/ngrok
 ```
 
 ### Python Dependencies
@@ -60,9 +61,19 @@ openssl rand -hex 32
 Copy the output into `GITHUB_WEBHOOK_SECRET` in your `.env` file.
 
 ### 4. Expose Your Local Server *(skip if deployed)*
+
+ngrok creates a public HTTPS tunnel to your local server so GitHub can deliver webhooks to it.
+
+1. Sign up at [ngrok.com](https://ngrok.com) and get your auth token
+2. Authenticate the CLI:
+```bash
+ngrok config add-authtoken <your-auth-token>
+```
+3. Start the tunnel:
 ```bash
 ngrok http 8000
 ```
+4. Copy the `Forwarding` URL (e.g. `https://abc123.ngrok-free.app`) — you'll need it in the next step
 
 ### 5. Add a GitHub Webhook
 
