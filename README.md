@@ -127,6 +127,6 @@ Run `task --list` to see all available commands.
 
 ## Notes
 
-- Devin is triggered only when an issue is labeled — not on every issue event
+- Devin is triggered only when an issue is labeled with `automation:remediation`
 - Task state is persisted in a local SQLite database (`data/`)
 - All sensitive values are stored in `.env` (gitignored)
