@@ -6,12 +6,18 @@ tasks:
   up:
     desc: "Start the API server and background poller, wait until ready"
     cmds:
-      - mkdir -p data
+      - mkdir -p data logs
       - |
+        mkdir -p data logs
+
+        echo "Clearing port 8000..."
+        lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+        sleep 1
+
         echo "Starting API server..."
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+        nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > logs/api.log 2>&1 &
         echo $! > .pid-api
-      - |
+
         echo "Waiting for API to be ready..."
         for i in $(seq 1 20); do
           if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
@@ -20,17 +26,25 @@ tasks:
           fi
           sleep 1
         done
-      - |
+
         echo "Starting poller..."
-        python worker/poller.py &
+        nohup python3 worker/poller.py > logs/poller.log 2>&1 &
         echo $! > .pid-worker
-      - echo "System is ready. Webhook → http://localhost:8000/webhook | Metrics → http://localhost:8000/metrics"
+
+        echo ""
+        echo "  System is ready"
+        echo "  Webhook  → http://localhost:8000/webhook"
+        echo "  Metrics  → http://localhost:8000/metrics"
+        echo "  Logs     → tail -f logs/api.log logs/poller.log"
+        echo ""
 
   down:
-    desc: "Stop services, delete non-main branches, and clear the tasks table"
+    desc: "Full reset: stop services, close PRs, delete branches, close issues, clear DB"
     cmds:
       - task: stop
+      - task: clean-prs
       - task: clean-branches
+      - task: clean-issues
       - task: clean-db
 
   stop:
@@ -43,28 +57,62 @@ tasks:
             rm -f "$pidfile"
           fi
         done
-      - echo "Processes stopped"
+        echo "Processes stopped"
+
+  clean-prs:
+    desc: "Close all open PRs in the repo"
+    cmds:
+      - |
+        echo "Closing open PRs in $GITHUB_REPO..."
+        PRS=$(gh pr list --repo $GITHUB_REPO --state open --json number --jq '.[].number')
+        if [ -z "$PRS" ]; then
+          echo "  No open PRs"
+        else
+          echo "$PRS" | while read pr; do
+            echo "  Closing PR #$pr"
+            gh pr close $pr --repo $GITHUB_REPO --delete-branch 2>/dev/null || \
+            gh pr close $pr --repo $GITHUB_REPO
+          done
+        fi
 
   clean-branches:
     desc: "Delete all remote branches except main/master"
     cmds:
       - |
         echo "Cleaning branches in $GITHUB_REPO..."
-        BRANCHES=$(gh api repos/$GITHUB_REPO/git/refs/heads --jq '.[].ref' | grep -v 'refs/heads/main$' | grep -v 'refs/heads/master$')
+        BRANCHES=$(gh api repos/$GITHUB_REPO/git/refs/heads --jq '.[].ref' \
+          | grep -v 'refs/heads/main$' \
+          | grep -v 'refs/heads/master$' || true)
         if [ -z "$BRANCHES" ]; then
-          echo "No branches to delete"
+          echo "  No branches to delete"
         else
           echo "$BRANCHES" | while read ref; do
             branch="${ref#refs/heads/}"
             echo "  Deleting branch: $branch"
-            gh api -X DELETE repos/$GITHUB_REPO/git/refs/heads/$branch
+            gh api -X DELETE repos/$GITHUB_REPO/git/refs/heads/$branch && echo "    Deleted" || echo "    WARN: could not delete $branch (check token permissions)"
+          done
+        fi
+
+  clean-issues:
+    desc: "Close all open issues in the repo"
+    cmds:
+      - |
+        echo "Closing open issues in $GITHUB_REPO..."
+        ISSUES=$(gh issue list --repo $GITHUB_REPO --state open --json number --jq '.[].number')
+        if [ -z "$ISSUES" ]; then
+          echo "  No open issues"
+        else
+          echo "$ISSUES" | while read issue; do
+            echo "  Closing issue #$issue"
+            gh issue close $issue --repo $GITHUB_REPO
           done
         fi
 
   clean-db:
     desc: "Wipe all rows from the tasks table"
     cmds:
-      - python -c "
+      - |
+        python3 -c "
         from app.db.database import SessionLocal, init_db
         from app.db.repository import clear_all_tasks
         init_db()
@@ -77,17 +125,33 @@ tasks:
   seed:
     desc: "Create the remediation issues in the fork"
     cmds:
-      - python scripts/create_issues.py
+      - python3 scripts/create_issues.py
+
+  ngrok:
+    desc: "Start ngrok tunnel on port 8000"
+    cmds:
+      - ngrok http 8000
+
+  logs:
+    desc: "Tail live logs from API and poller"
+    cmds:
+      - tail -f logs/api.log logs/poller.log
+
+  status:
+    desc: "Show current task status from the database"
+    silent: true
+    cmds:
+      - python3 scripts/status.py
 
   metrics:
     desc: "Print current task metrics from the API"
     cmds:
-      - curl -s http://localhost:8000/metrics | python -m json.tool
+      - curl -s http://localhost:8000/metrics | python3 -m json.tool
 
   tasks-list:
     desc: "List all tasks from the API"
     cmds:
-      - curl -s http://localhost:8000/tasks | python -m json.tool
+      - curl -s http://localhost:8000/tasks | python3 -m json.tool
 
   docker-up:
     desc: "Start services via Docker Compose"

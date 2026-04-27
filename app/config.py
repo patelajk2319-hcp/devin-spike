@@ -2,6 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # All values are read from .env; missing required fields raise a startup error
     model_config = SettingsConfigDict(env_file=".env")
 
     devin_api_token: str
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
 
     github_token: str
     github_webhook_secret: str
-    github_repo: str  # e.g. "patelajk/superset"
+    github_repo: str  # format: "owner/repo"
 
     database_url: str = "sqlite:///./data/tasks.db"
 
@@ -17,4 +18,5 @@ class Settings(BaseSettings):
     remediation_label: str = "automation:remediation"
 
 
+# Module-level singleton — imported directly by all other modules
 settings = Settings()

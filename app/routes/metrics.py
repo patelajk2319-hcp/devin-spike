@@ -1,16 +1,15 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 
-from app.db.database import get_db
 from app.db import repository
+from app.db.database import TaskRecord, get_db
 from app.models.task import TaskRead
 
 router = APIRouter()
 
 
 @router.get("/metrics")
-def get_metrics(db: Session = Depends(get_db)):
+def get_metrics(db: Session = Depends(get_db)) -> dict:
     data = repository.get_metrics(db)
     return {
         "total": data["total"],
@@ -18,21 +17,19 @@ def get_metrics(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/tasks", response_model=List[TaskRead])
-def list_tasks(db: Session = Depends(get_db)):
+@router.get("/tasks", response_model=list[TaskRead])
+def list_tasks(db: Session = Depends(get_db)) -> list[TaskRecord]:
     return repository.get_all_tasks(db)
 
 
 @router.get("/tasks/{task_id}", response_model=TaskRead)
-def get_task(task_id: int, db: Session = Depends(get_db)):
-    from app.db.database import TaskRecord
+def get_task(task_id: int, db: Session = Depends(get_db)) -> TaskRecord:
     task = db.query(TaskRecord).filter(TaskRecord.id == task_id).first()
     if not task:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Task not found")
     return task
 
 
 @router.get("/health")
-def health():
+def health() -> dict:
     return {"status": "ok"}

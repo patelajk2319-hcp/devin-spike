@@ -1,99 +1,79 @@
-# Event-Driven Vulnerability Remediation System
+# Devin Remediation Demo
 
-Watches a GitHub repository for issues labeled `automation:remediation`, spawns a [Devin](https://devin.ai) session to fix each one, and reports back via PR links and issue comments.
+Labels a GitHub issue → Devin fixes it → PR opened automatically.
 
-## Architecture
+## How it works
 
 ```
-GitHub Issue (labeled) → POST /webhook → task_service → devin_service
-                                              ↓
-                                          SQLite DB
-                                              ↓
-                                    worker/poller (every 30s)
-                                              ↓
-                               GitHub PR comment + issue update
-                                              ↓
-                                     GET /metrics endpoint
+GitHub issue labeled  →  webhook  →  Devin session started  →  PR opened  →  issue commented
 ```
 
-## Setup
+A background poller checks session status every 30s and finalises each task when Devin finishes.
 
-### 1. Install dependencies
+## Quick start
 
+**1. Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment
-
+**2. Configure**
 ```bash
 cp .env.example .env
-# Edit .env and fill in your tokens
+# Fill in the four required values
 ```
 
-Required variables:
-
-| Variable | Description |
+| Variable | What it is |
 |---|---|
-| `DEVIN_API_TOKEN` | Devin API token for `patelajk-devin` |
+| `DEVIN_API_TOKEN` | Devin API token |
 | `GITHUB_TOKEN` | GitHub PAT with `repo` scope |
-| `GITHUB_WEBHOOK_SECRET` | Secret for validating webhook signatures |
-| `GITHUB_REPO` | Fork to monitor, e.g. `patelajk/superset` |
+| `GITHUB_WEBHOOK_SECRET` | Any secret string — used to verify webhook signatures |
+| `GITHUB_REPO` | Repo to monitor, e.g. `your-org/your-repo` |
 
-### 3. Seed issues
-
+**3. Expose your local server** *(skip if deployed)*
 ```bash
-task seed
-# or: python scripts/create_issues.py
+ngrok http 8000
 ```
 
-### 4. Start the system
+**4. Add a GitHub webhook**
 
+Repo → Settings → Webhooks → Add webhook:
+- Payload URL: `https://<ngrok-url>/webhook`
+- Content type: `application/json`
+- Secret: your `GITHUB_WEBHOOK_SECRET`
+- Events: Issues
+
+**5. Start**
 ```bash
 task up
 ```
 
-This starts the FastAPI server (port 8000) and the background poller. Watch for `ready` in the output.
+**6. Seed issues** *(triggers the demo)*
+```bash
+task seed
+```
 
-### 5. Configure a GitHub webhook
+Watch Devin open PRs and comment on each issue automatically.
 
-In your fork → Settings → Webhooks → Add webhook:
-- **Payload URL:** `https://<your-host>/webhook` (or use [ngrok](https://ngrok.com) locally)
-- **Content type:** `application/json`
-- **Secret:** value of `GITHUB_WEBHOOK_SECRET`
-- **Events:** Issues
-
-## Task commands
+## Commands
 
 | Command | Description |
 |---|---|
-| `task up` | Start API + poller, wait for ready |
-| `task down` | Stop processes, delete non-main branches, clear DB |
-| `task stop` | Stop background processes only |
-| `task seed` | Create remediation issues in the fork |
-| `task clean-branches` | Delete all branches except main/master |
-| `task clean-db` | Wipe the tasks table |
-| `task metrics` | Print current metrics from the API |
-| `task tasks-list` | List all tasks from the API |
-| `task docker-up` | Start via Docker Compose |
-| `task docker-down` | Stop Docker Compose |
+| `task up` | Start API + poller |
+| `task down` | Full reset — stop, close PRs, delete branches, clear DB |
+| `task seed` | Create demo issues in the repo |
+| `task logs` | Tail live logs |
+| `task status` | Show task table from DB |
+| `task metrics` | Show task counts from API |
 
-## API Endpoints
+## API
 
 | Endpoint | Description |
 |---|---|
-| `POST /webhook` | GitHub webhook receiver |
 | `GET /health` | Health check |
 | `GET /metrics` | Task counts by status |
 | `GET /tasks` | All tasks |
-| `GET /tasks/{id}` | Single task detail |
-
-## Local development with ngrok
-
-```bash
-ngrok http 8000
-# Copy the https URL → set as webhook payload URL in GitHub
-```
+| `POST /webhook` | GitHub webhook receiver |
 
 ## Docker
 

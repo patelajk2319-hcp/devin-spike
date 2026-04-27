@@ -1,6 +1,7 @@
 import hashlib
 import hmac
-from fastapi import APIRouter, Request, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -12,7 +13,8 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-def _verify_signature(payload: bytes, signature_header: str | None):
+def _verify_signature(payload: bytes, signature_header: str | None) -> None:
+    # compare_digest prevents timing-based signature oracle attacks
     if not signature_header:
         raise HTTPException(status_code=401, detail="Missing X-Hub-Signature-256")
     secret = settings.github_webhook_secret.encode()
@@ -41,10 +43,10 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
         return {"ignored": True, "reason": f"label '{label_name}' not monitored"}
 
     issue = body["issue"]
-    issue_number = issue["number"]
-    issue_title = issue["title"]
-    issue_url = issue["html_url"]
-    issue_body = issue.get("body") or ""
+    issue_number: int = issue["number"]
+    issue_title: str = issue["title"]
+    issue_url: str = issue["html_url"]
+    issue_body: str = issue.get("body") or ""
 
     logger.info(f"Webhook: issue #{issue_number} labeled '{label_name}'")
 

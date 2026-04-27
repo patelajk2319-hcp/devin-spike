@@ -1,8 +1,9 @@
-from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
+
 from app.db.database import init_db
-from app.routes import webhook, metrics
+from app.routes import metrics, webhook
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

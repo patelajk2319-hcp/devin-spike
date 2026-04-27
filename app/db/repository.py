@@ -1,6 +1,7 @@
+from datetime import datetime, timezone
+from typing import Optional
+
 from sqlalchemy.orm import Session
-from datetime import datetime
-from typing import Optional, List
 
 from app.db.database import TaskRecord
 
@@ -13,12 +14,13 @@ def get_task_by_session(db: Session, session_id: str) -> Optional[TaskRecord]:
     return db.query(TaskRecord).filter(TaskRecord.devin_session_id == session_id).first()
 
 
-def get_all_tasks(db: Session) -> List[TaskRecord]:
+def get_all_tasks(db: Session) -> list[TaskRecord]:
     return db.query(TaskRecord).order_by(TaskRecord.created_at.desc()).all()
 
 
-def get_running_tasks(db: Session) -> List[TaskRecord]:
-    return db.query(TaskRecord).filter(TaskRecord.status == "running").all()
+def get_running_tasks(db: Session) -> list[TaskRecord]:
+    # "blocked" tasks are still active — Devin may resume them after a nudge
+    return db.query(TaskRecord).filter(TaskRecord.status.in_(["running", "blocked"])).all()
 
 
 def create_task(
@@ -47,24 +49,24 @@ def update_task(db: Session, task_id: int, **kwargs) -> Optional[TaskRecord]:
         return None
     for key, value in kwargs.items():
         setattr(record, key, value)
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(record)
     return record
 
 
-def clear_all_tasks(db: Session):
+def clear_all_tasks(db: Session) -> None:
     db.query(TaskRecord).delete()
     db.commit()
 
 
 def get_metrics(db: Session) -> dict:
     all_tasks = db.query(TaskRecord).all()
-    status_counts = {}
+    by_status: dict[str, int] = {}
     for task in all_tasks:
-        status_counts[task.status] = status_counts.get(task.status, 0) + 1
+        by_status[task.status] = by_status.get(task.status, 0) + 1
     return {
         "total": len(all_tasks),
-        "by_status": status_counts,
+        "by_status": by_status,
         "tasks": all_tasks,
     }

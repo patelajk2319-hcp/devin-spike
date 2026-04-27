@@ -1,12 +1,14 @@
-from enum import Enum
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel
 
 
 class TaskStatus(str, Enum):
     pending = "pending"
     running = "running"
+    blocked = "blocked"
     completed = "completed"
     failed = "failed"
 
